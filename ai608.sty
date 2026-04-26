@@ -1,0 +1,19 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ai608}[2026 compact assignment style]
+
+\RequirePackage[T1]{fontenc}
+\RequirePackage[utf8]{inputenc}
+\RequirePackage{lmodern}
+\RequirePackage[margin=0.75in]{geometry}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+
+\pagestyle{empty}
+
+\newcommand{\assignmentheader}[3]{%
+\begin{center}
+{\Large\bfseries [#1] #2 #3}
+\end{center}
+\vspace{1.5em}
+}
