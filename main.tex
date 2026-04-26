@@ -2,6 +2,7 @@
 \documentclass[11pt]{article}
 
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{xcolor}
 \usepackage{ai608}
 
@@ -48,20 +49,31 @@ Your submission should follow the format below.
 \vspace{1em}
 
 \subsubsection*{1.1 Problem Definition}
-(Write here)
+Modern time-series foundation models---Chronos, TimeGPT, MOIRAI, Lag-Llama---recast forecasting as autoregressive next-token prediction over discretized values, leveraging transformer architectures pre-trained on heterogeneous time-series corpora. By the Wold Decomposition Theorem, the optimal one-step-ahead linear forecaster of any covariance-stationary process produces residuals that are white noise and orthogonal to every past observation. We ask: \emph{do trained transformer-based forecasters' residuals satisfy the Wold orthogonality conditions, and if not, what minimal modification of training or architecture would enforce them?}
 
 \subsubsection*{1.2 Purpose}
-(Write here)
+Wold's theorem gives a constructive characterization of optimality for linear forecasters of stationary processes. It is the only tractable theoretical benchmark we have against which to judge whether a black-box deep model is doing the right thing on stationary data. Despite this, no published time-series foundation model explicitly verifies or enforces the Wold conditions on its residuals---``improvements'' are reported entirely via downstream metrics (MASE, MAPE, CRPS). This is unsatisfying for two reasons. First, a forecaster that beats benchmarks while leaving exploitable structure in its residuals is provably suboptimal as a stationary-process predictor, in a sense made precise by Wold. Second, residual diagnostics (Ljung--Box, ACF/PACF inspection) form the canonical diagnostic toolkit of classical time-series analysis, and bridging that toolkit to modern foundation-model evaluation is currently an open question.
 
 \subsubsection*{1.3 Problem Description}
-(Write here)
+Let $T_\theta : \mathbb{R}^L \to \mathbb{R}$ be a transformer-based forecaster with context window $L$, trained with the standard MSE (or quantile) loss to predict $y_t$ from $(y_{t-1}, \ldots, y_{t-L})$. Define the empirical residual sequence $\hat e_t \;:=\; y_t - T_\theta(y_{t-1}, \ldots, y_{t-L})$.
+
+\textbf{(a) Failure mode construction.} Show that the standard MSE training objective alone does \emph{not} guarantee that $\hat e_t$ satisfies the Wold orthogonality $E[y_{t-j}\, \hat e_t] = 0$ for all $j \geq 1$. Construct a concrete stationary process and a transformer configuration on which $\hat e_t$ exhibits statistically significant lag-$k$ autocorrelation for some $k \leq L$.
+
+\textbf{(b) Wold-regularized training.} Propose a regularization term $\mathcal{L}_{\text{Wold}}$ that, when added to the MSE loss, penalizes residual autocorrelation up to lag $K$. Analyze the per-batch computational overhead in terms of $L$, $K$, and batch size $B$, and compare it to the $O(L^2)$ cost of self-attention.
+
+\textbf{(c) Linear vs.\ nonlinear orthogonality.} The Wold decomposition is built on linear projection onto $\overline{\mathrm{span}}\{y_{t-1}, y_{t-2}, \ldots\}$. A transformer can in principle approximate the conditional mean $E[y_t \mid \mathcal{F}_{t-1}]$, whose residuals are orthogonal to \emph{every} measurable function of the past---a strictly stronger property. Discuss: (i) under what conditions data, capacity, and optimization will drive $T_\theta$ toward the conditional mean; (ii) whether your regularizer in (b) interferes with that convergence; (iii) how one would empirically distinguish ``Wold-orthogonal but not conditionally optimal'' residuals from genuinely conditionally-optimal ones.
 
 \subsubsection*{1.4 Possible Solution (if applicable)}
-(Write here)
+\textbf{(a)} Take a near-unit-root AR(1), $y_t = 0.99\, y_{t-1} + \varepsilon_t$, $\varepsilon_t \sim \mathcal{N}(0,1)$, whose effective memory ($\approx 100$ steps) far exceeds a transformer's context $L = 16$. The optimal forecast within this context is no longer the population MMSE: long-range dependence on $y_{t-L-1}, y_{t-L-2}, \ldots$ leaks into $\hat e_t$. Empirically, after fitting and computing the sample autocorrelation $\hat\rho_{\hat e}(k)$, the Ljung--Box test rejects zero autocorrelation at the $5\%$ level for lags near $L$.
 
-\vspace{1em}
+\textbf{(b)} A natural choice mirrors the Ljung--Box statistic:
+\[
+\mathcal{L}_{\text{Wold}}(\theta) \;=\; \mathcal{L}_{\text{MSE}}(\theta) \;+\; \lambda \sum_{k=1}^{K} \rho_{\hat e}(k)^2,
+\qquad \rho_{\hat e}(k) = \frac{\sum_{t}\hat e_t\,\hat e_{t-k}}{\sum_{t}\hat e_t^{\,2}}.
+\]
+Per minibatch the cost is $O(BKL)$, dominated by attention's $O(BL^2)$ as long as $K = O(L)$, so the regularizer is essentially free.
 
-(Write your Open Book problem and solution here.)
+\textbf{(c)} (i) Universal-approximation results plus sufficient data and standard SGD optimization should drive $T_\theta$ toward the conditional mean, but in the practically relevant regime (finite data, finite $L$, finite compute) this is not achieved. (ii) The proposed regularizer enforces only second-order orthogonality and does not preclude convergence to the conditional mean: at the conditional-mean optimum the residuals are uncorrelated with all measurable functions of the past, so $\mathcal{L}_{\text{Wold}}=0$ automatically. (iii) Run a \emph{nonlinear} portmanteau test: estimate $\widehat{E}[\hat e_t\, f(y_{t-j})]$ for nonlinear features $f \in \{x^2,\; |x|,\; \tanh(x)\}$. Failure of these tests under success of the linear Ljung--Box test is direct evidence of Wold-orthogonal-but-not-conditionally-optimal residuals.
 
 \noindent\rule{\textwidth}{0.4pt}
 
@@ -79,16 +91,77 @@ Your submission should follow the format below.
 \vspace{1em}
 
 \subsubsection*{2.1 Problem Definition}
-(Write here)
+Test the foundational understanding of the Wold Decomposition Theorem (Lecture 5). The student is asked to (a) state the theorem precisely, (b) reproduce the orthogonality argument from the first-order condition of the linear MMSE, (c) prove the square-summability of the impulse-response coefficients, and (d) apply the theorem to identify the deterministic and indeterministic components of a sinusoidal-plus-noise process.
 
 \subsubsection*{2.2 Purpose}
-(Write here)
+The Wold Decomposition Theorem is the most fundamental structural result in classical time-series analysis: every zero-mean covariance-stationary process admits a unique decomposition into a (linearly) deterministic component plus an infinite moving-average of orthogonal white-noise innovations. Mastery of this theorem is required for almost every downstream topic in the course---the existence of ARMA representations (which silently assume the deterministic part is zero), the spectral representation theorem, state-space modeling, and the identification of structural shocks in vector autoregressions. A student who can recall the theorem, reproduce its core proof steps without notes, and interpret its components on a concrete example demonstrates a working command of the linear theory of stationary processes.
 
 \subsubsection*{2.3 Problem Description}
-(Write here)
+Let $\{y_t\}_{t\in\mathbb{Z}}$ be a real-valued, zero-mean, covariance-stationary stochastic process with finite second moment. The Wold Decomposition Theorem asserts that
+\[
+y_t \;=\; v_t \;+\; \sum_{j=0}^{\infty} c_j\, e_{t-j}.
+\]
+
+\textbf{(a) [4 pts]} State the four conditions on $\{e_t\}$ and $\{c_j\}$, plus the condition on $v_t$, that complete the theorem. For each condition, give a one-sentence intuitive interpretation.
+
+\textbf{(b) [6 pts]} Construct $e_t$ as the one-step-ahead linear prediction error
+\[
+e_t \;=\; y_t \;-\; \sum_{j=1}^{\infty} a_j\, y_{t-j},
+\]
+where $\{a_j\}_{j\geq 1}$ minimizes the mean-squared forecast error
+\[
+\min_{\{a_j\}}\; E\!\left(y_t - \sum_{j=1}^{\infty} a_j\, y_{t-j}\right)^{\!2}.
+\]
+Differentiate with respect to $a_j$, write the first-order condition, and prove $E[y_{t-j}\, e_t] = 0$ for all $j \geq 1$.
+
+\textbf{(c) [5 pts]} Prove the square-summability $\sum_{j=0}^{\infty} c_j^{\,2} < \infty$. \emph{Hint:} expand $y_t = \sum_{j=0}^{k} c_j\, e_{t-j} + v_t^{(k)}$ recursively, with $v_t^{(k)} \in \overline{\mathrm{span}}\{y_{t-k-1},y_{t-k-2},\ldots\}$, and exploit the non-negativity of $E\!\left(y_t - \sum_{j=0}^{k} c_j\, e_{t-j}\right)^{2}$ together with $E[y_t\, e_{t-j}] = c_j\, \sigma^2$.
+
+\textbf{(d) [5 pts]} Consider
+\[
+y_t \;=\; A\cos(\omega t + \varphi) \;+\; \varepsilon_t,
+\]
+with $A>0$, $\omega \in (0,\pi)$ fixed, $\varphi \sim \mathrm{Uniform}(0, 2\pi)$ drawn once at $t=-\infty$ and held forever, and $\varepsilon_t \overset{\text{iid}}{\sim} \mathrm{WN}(0, \sigma^2)$ independent of $\varphi$. (i) Verify that $y_t$ is covariance-stationary by computing $E[y_t]$ and $\mathrm{Cov}(y_t, y_{t-k})$. (ii) Identify $v_t$ and $\sum_j c_j e_{t-j}$ in the Wold decomposition of $y_t$, and justify the identification of $v_t$ as deterministic by appealing to the formal definition: a process is deterministic if it can be predicted with zero error from its infinite past.
 
 \subsubsection*{2.4 Possible Solution (if applicable)}
-(Write here)
+\textbf{(a)}
+\begin{itemize}\setlength\itemsep{0pt}
+\item $e_t \in \overline{\mathrm{span}}\{y_t, y_{t-1}, \ldots\}$: the innovation lives in the closed linear span of present and past observations---it is observable from data, not latent.
+\item $e_t \sim \mathrm{WN}(0, \sigma^2)$: zero mean and constant variance---the part of $y_t$ that is genuinely surprising relative to its own past.
+\item $\mathrm{Cov}(e_t, e_s) = 0$ for $t \neq s$: distinct innovations are mutually uncorrelated; no remaining linear structure can be extracted.
+\item $\sum_{j=0}^{\infty} c_j^{\,2} < \infty$: the impulse-response is square-summable, so the moving-average converges in mean square (shocks have a finite cumulative variance contribution).
+\item $v_t$ is deterministic: $v_t$ is perfectly predictable from its own infinite past, contributing no innovation.
+\end{itemize}
+
+\textbf{(b)} The objective $J(\{a_j\}) = E\!\left(y_t - \sum_{k=1}^{\infty} a_k y_{t-k}\right)^{2}$ has gradient
+\[
+\frac{\partial J}{\partial a_j} \;=\; -2\, E\!\left[ y_{t-j}\!\left(y_t - \sum_{k=1}^{\infty} a_k\, y_{t-k}\right) \right] \;=\; 0,
+\]
+which simplifies directly to $E[y_{t-j}\, e_t] = 0$ for all $j \geq 1$. \hfill$\Box$
+
+\textbf{(c)} From the recursive expansion, multiplying $y_t = \sum_{j=0}^{k} c_j\, e_{t-j} + v_t^{(k)}$ by $e_{t-l}$ for $0 \leq l \leq k$ and taking expectations gives $E[y_t\, e_{t-l}] = c_l\, \sigma^2$, since $e_{t-l}$ is white noise and is orthogonal to $v_t^{(k)} \in \overline{\mathrm{span}}\{y_{t-k-1},\ldots\}$ by part (b). Then
+\begin{align*}
+0 \;\leq\; E\!\left(y_t - \sum_{j=0}^{k} c_j e_{t-j}\right)^{\!2}
+&= E[y_t^2] + \sum_{j=0}^{k} c_j^{\,2}\, \sigma^2 - 2\sum_{j=0}^{k} c_j\, E[y_t e_{t-j}] \\
+&= E[y_t^2] - \sum_{j=0}^{k} c_j^{\,2}\, \sigma^2.
+\end{align*}
+So $\sum_{j=0}^{k} c_j^{\,2} \leq E[y_t^2]\,/\, \sigma^2$ for every $k$. Letting $k \to \infty$, $\sum_{j=0}^{\infty} c_j^{\,2} \leq E[y_t^2]\,/\, \sigma^2 < \infty$. \hfill$\Box$
+
+\textbf{(d)} (i) Mean: $E[y_t] = A\, E[\cos(\omega t + \varphi)] + 0 = \tfrac{A}{2\pi}\!\int_0^{2\pi}\!\cos(\omega t + \varphi)\,d\varphi = 0$. Autocovariance:
+\[
+\mathrm{Cov}(y_t, y_{t-k}) \;=\; A^2\, E[\cos(\omega t + \varphi)\cos(\omega(t-k)+\varphi)] + \sigma^2\, \mathbf{1}\{k=0\} \;=\; \tfrac{A^2}{2}\cos(\omega k) + \sigma^2\, \mathbf{1}\{k=0\},
+\]
+which depends only on $k$, so $\{y_t\}$ is covariance-stationary.
+
+(ii) The Wold decomposition is
+\[
+y_t \;=\; \underbrace{A\cos(\omega t + \varphi)}_{v_t} \;+\; \underbrace{\varepsilon_t}_{c_0\, e_t,\;\, c_0=1},
+\]
+with $c_j = 0$ for $j \geq 1$. To see that $v_t$ is deterministic, define from the past the running estimators
+\[
+\hat C_N \;=\; \frac{2}{N}\sum_{s=1}^{N} y_{t-s}\cos(\omega(t-s)),\qquad
+\hat S_N \;=\; -\frac{2}{N}\sum_{s=1}^{N} y_{t-s}\sin(\omega(t-s)).
+\]
+The noise contributions vanish by the law of large numbers (since $\varepsilon_{t-s}$ has mean zero and is independent of $\varphi$), while elementary trigonometric integrals give $\hat C_N \to A\cos\varphi$ and $\hat S_N \to A\sin\varphi$ almost surely. Hence $A$ and $\varphi$ are recovered with probability one from $\{y_s\}_{s<t}$, so $v_t = A\cos(\omega t + \varphi)$ is determined exactly---fitting the formal definition of a deterministic process. The residual $\varepsilon_t$ is independent of $\{y_s\}_{s<t}$, so it is the (non-trivial) innovation. \hfill$\Box$
 
 \vspace{1em}
 
